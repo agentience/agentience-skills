@@ -35,7 +35,7 @@ flowchart LR
 ## Install
 
 ```bash
-git clone https://github.com/<you>/agentience-skills.git
+git clone https://github.com/agentience/agentience-skills.git
 cd agentience-skills/skills/handoff
 ./install.sh --dry-run     # see every path it would touch
 ./install.sh

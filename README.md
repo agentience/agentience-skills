@@ -18,7 +18,7 @@ Clone the repo somewhere permanent, then run the installer for the skill you
 want:
 
 ```bash
-git clone https://github.com/<you>/agentience-skills.git
+git clone https://github.com/agentience/agentience-skills.git
 cd agentience-skills/skills/handoff
 ./install.sh --dry-run    # every path it would touch, no changes
 ./install.sh

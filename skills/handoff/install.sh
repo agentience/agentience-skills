@@ -82,6 +82,24 @@ check_version() {
   fi
 }
 
+check_node() {
+  # The digest step runs a TypeScript file through npx. Version managers (nvm,
+  # fnm, asdf, volta) only put node on PATH from an interactive shell rc, and
+  # Claude Code's Bash tool is not interactive — so `node -v` working in your
+  # terminal does not mean the skill can find it. scripts/digest.sh probes the
+  # usual version-manager layouts; this just tells you which case you are in.
+  # Ask digest.sh itself rather than re-implementing the search here — that way
+  # this check can never disagree with what actually runs at handoff time.
+  local probe
+  if probe="$("$SRC/scripts/digest.sh" --probe 2>/dev/null)"; then
+    say "node resolved: $(printf '%s' "$probe" | tr '\n' ' ')"
+  else
+    say "WARNING: no usable node/npx found, on PATH or in nvm/fnm/asdf/volta."
+    say "         The transcript digest will fail and /handoff will fall back"
+    say "         to a brief-only document. Install Node 18+ for full behaviour."
+  fi
+}
+
 # ------------------------------------------------------- settings.json edit
 
 # Both implementations are idempotent: they match on the command string, so
@@ -173,6 +191,7 @@ fi
 
 echo "Installing the '$SKILL_NAME' skill from $SRC"
 check_version
+check_node
 
 run mkdir -p "$CLAUDE_DIR/skills" "$HOOK_DEST" "$AGENT_DEST"
 

@@ -97,10 +97,13 @@ is a hybrid rather than a fire-and-forget delegation.
 ### 1. Gather (one Bash call)
 
 ```bash
-OUT="${TMPDIR:-/tmp}/handoff-$CLAUDE_CODE_SESSION_ID"; mkdir -p "$OUT" && \
-npx tsx "${CLAUDE_SKILL_DIR}/scripts/digest-transcript.ts" \
-  --session "$CLAUDE_CODE_SESSION_ID" --max-text 2000 --out "$OUT/digest.md" && \
-git branch --show-current && git log --oneline -5 && git status --short && \
+OUT="${TMPDIR:-/tmp}/handoff-$CLAUDE_CODE_SESSION_ID"; mkdir -p "$OUT"
+echo "--- digest ---"
+"${CLAUDE_SKILL_DIR}/scripts/digest.sh" \
+  --session "$CLAUDE_CODE_SESSION_ID" --max-text 2000 --out "$OUT/digest.md" \
+  || echo "DIGEST FAILED (exit $?)"
+echo "--- git ---"
+git branch --show-current; git log --oneline -5; git status --short
 ls -t .claude/handoffs/*.md 2>/dev/null | head -5
 if command -v amq >/dev/null 2>&1; then
   echo "--- amq env ---";   amq env --json
@@ -108,6 +111,12 @@ if command -v amq >/dev/null 2>&1; then
   echo "--- amq inbox ---"; amq list --new
 else echo "--- amq: not in PATH ---"; fi
 ```
+
+**The sections are separated by `;` and not `&&` on purpose.** They used to be
+one `&&` chain, which meant a failed digest silently took the git facts down
+with it — you would lose the branch, the recent commits and the working-tree
+state at the same moment, and the most likely reason for that failure (`npx` not
+on PATH) has nothing to do with git. Each block now stands or falls alone.
 
 Keep it to **one** call — batching is the point; each extra round trip costs a full
 context re-send, which is what this mode exists to avoid.
@@ -122,6 +131,9 @@ context re-send, which is what this mode exists to avoid.
 - **If the digest fails, say so and fall back to `--inline`.** Do not delegate a
   brief-only handoff without telling the user; a brief-only document is
   indistinguishable from a well-sourced one, and that is the failure worth avoiding.
+  `scripts/digest.sh` already probes nvm/fnm/asdf/volta before giving up, and
+  exits 127 with an explanation if it still cannot find `npx` — so a failure here
+  is a real missing dependency, not a PATH quirk to work around by hand.
 - The `amq` block is outside the `&&` chain, so a project with no AMQ in play prints
   one line and costs nothing. It captures the *resolved* routing context
   (`amq env --json` → handle, root, session, base root), the live peers

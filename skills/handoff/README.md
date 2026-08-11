@@ -1,6 +1,6 @@
 # `/handoff` — a document, not a transcript, carries the work forward
 
-**Last Updated: 2026-08-11 11:35**
+**Last Updated: 2026-08-11 13:25**
 
 A Claude Code skill that ends a session by writing a handoff document, and starts
 the next one by reading it. On tmux it closes the loop: the session that writes
@@ -55,11 +55,26 @@ loaded at startup.
 It backs up `settings.json` before editing, matches on the command string so
 re-running never double-registers, and removes only its own entry on uninstall.
 
-**Requires Claude Code 2.1.69+.** The skill finds its own bundled
-`digest-transcript.ts` through `${CLAUDE_SKILL_DIR}`, which that release added.
-On older versions the variable is not substituted and the digest step fails
-*silently*, degrading write mode to a brief-only document that looks identical to
-a well-sourced one. `install.sh` checks and warns.
+### Requirements
+
+| | Why | If missing |
+|---|---|---|
+| **Claude Code 2.1.69+** | the skill finds its bundled `digest-transcript.ts` through `${CLAUDE_SKILL_DIR}`, added in that release | the variable isn't substituted and the digest fails *silently*, degrading write mode to a brief-only document that looks identical to a well-sourced one |
+| **Node 18+** | the digest runs through `npx tsx` | write mode falls back to `--inline` and says so |
+| **tmux** | only for the relaunch | install with `--no-hook`; everything else works |
+| **jq or python3** | only for editing `settings.json` during install | `install.sh` prints the JSON for you to paste |
+
+`install.sh` checks all of these and tells you which case you're in.
+
+**If you use nvm, fnm, asdf or volta, read this.** Those put `node` on your PATH
+from an *interactive* shell rc, and the shell Claude Code's Bash tool spawns is
+not interactive — so `node --version` working in your terminal does not mean the
+skill can find it. `scripts/digest.sh` exists for exactly this: it probes the
+usual version-manager layouts before giving up. Check with:
+
+```bash
+./scripts/digest.sh --probe
+```
 
 ## The three modes
 
@@ -161,6 +176,7 @@ that spawns Claude sessions, have it export `HANDOFF_RELAUNCH_DISABLE`.
 |---|---|
 | `SKILL.md` | the skill itself — all three modes |
 | `agents/handoff-writer.md` | the writer subagent, in write and revise modes |
+| `scripts/digest.sh` | resolves node, then runs the digest — handles nvm/fnm/asdf/volta |
 | `scripts/digest-transcript.ts` | transcript → timestamped markdown timeline |
 | `hooks/handoff-relaunch.sh` | the `Stop` hook that consumes the sentinel |
 | `hooks/tmux-rename.sh` | explicit window rename, used by read mode's window slug |

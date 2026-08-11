@@ -1,0 +1,18 @@
+---
+config:
+  layout: elk
+---
+flowchart LR
+    work("session does the work") --> cmd("/handoff<br/>write mode")
+    cmd --> digest("digest the transcript")
+    digest --> writer("handoff-writer subagent<br/>on Sonnet")
+    writer --> doc[/"handoff document"/]
+    cmd --> sentinel[/".relaunch sentinel"/]
+    sentinel --> stop("Stop hook<br/>handoff-relaunch.sh")
+    stop --> tmuxwin["tmux respawn-window -k"]
+    tmuxwin --> fresh("fresh session<br/>/handoff --read")
+    doc -.->|"read at startup"| fresh
+    fresh --> work
+    work -.->|"tick items, append progress"| doc
+    classDef external stroke-dasharray:4 3
+    class tmuxwin external

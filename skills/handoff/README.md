@@ -83,7 +83,7 @@ usual version-manager layouts before giving up. Check with:
 config:
   layout: elk
 ---
-flowchart TB
+flowchart LR
     args{"how was /handoff<br/>invoked?"}
     args -->|"--read"| read("Read mode")
     args -->|"--next"| next("Next mode")

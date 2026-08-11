@@ -209,8 +209,19 @@ can come after it.** Unless `--no-relaunch` appears in the arguments, write the
 document's project-relative path as the only line of a sentinel file:
 
 ```bash
-printf '%s\n' ".claude/handoffs/<name>.md" > .claude/handoffs/.relaunch
+printf '%s\n' ".claude/handoffs/<name>.md" \
+  > ".claude/handoffs/.relaunch.$CLAUDE_CODE_SESSION_ID"
 ```
+
+**The `$CLAUDE_CODE_SESSION_ID` suffix is load-bearing — do not drop it.** The
+sentinel used to be a single `.relaunch` per project root, which is fine for one
+session and broken for two. Observed 2026-08-11 with eight Claude sessions open on
+one repo: this session wrote the sentinel, a *different* session's `Stop` fired
+first, consumed it, and respawned **its own** window running **this session's**
+document. That session's context was destroyed, this one survived when it should
+have been replaced, and the handoff was picked up by a session that had never been
+part of the work. Nothing looked like a failure — the relaunch "worked", just to
+the wrong window. Naming the sentinel after the session makes ownership explicit.
 
 That is the entire obligation. A `Stop` hook
 (`~/.claude/hooks/handoff-relaunch.sh`, installed by this skill's `install.sh`)

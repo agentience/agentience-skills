@@ -1,6 +1,6 @@
 # `/handoff` — a document, not a transcript, carries the work forward
 
-**Last Updated: 2026-08-11 13:25**
+**Last Updated: 2026-08-11 14:44**
 
 A Claude Code skill that ends a session by writing a handoff document, and starts
 the next one by reading it. On tmux it closes the loop: the session that writes

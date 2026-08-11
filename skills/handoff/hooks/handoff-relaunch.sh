@@ -4,7 +4,7 @@
 # the session just wrote.
 #
 # Contract: `/handoff` write mode drops a sentinel at
-#   <project-root>/.claude/handoffs/.relaunch
+#   <project-root>/.claude/handoffs/.relaunch.<session_id>
 # whose first line is the path of the document it wrote (relative to the project
 # root). This hook consumes that sentinel — reads it, deletes it, acts on it —
 # and is a silent no-op when it is absent, which is every other Stop event.
@@ -66,23 +66,56 @@ TMUX_BIN="$(command -v tmux 2>/dev/null || true)"
 input="$(cat 2>/dev/null || true)"
 
 cwd=""
+sid=""
 if command -v jq >/dev/null 2>&1 && [ -n "$input" ]; then
     cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
+    sid="$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)"
 fi
 [ -z "$cwd" ] && cwd="${CLAUDE_PROJECT_DIR:-$PWD}"
+[ -z "$sid" ] && sid="${CLAUDE_CODE_SESSION_ID:-}"
 
-# Resolve the project root: prefer the dir that actually holds the sentinel.
+# The sentinel is named for the session that wrote it: `.relaunch.<session_id>`.
+#
+# It used to be a single `.relaunch` per project root, and that is a real bug
+# under concurrency, observed 2026-08-11: eight Claude sessions were open on one
+# repo, session A wrote the sentinel, and session B's Stop event fired first.
+# B consumed A's sentinel and respawned **B's own window** with **A's document** —
+# so B's window was destroyed, B's context was lost, A's window survived when it
+# should have been replaced, and the document was picked up by a session that had
+# never been part of that work. Nothing about it looked like a failure: the
+# relaunch "worked", just to the wrong window.
+#
+# Scoping by session_id makes ownership explicit, so concurrent sessions in one
+# repo cannot steal each other's relaunches.
+sentinel_name=".relaunch"
+[ -n "$sid" ] && sentinel_name=".relaunch.$sid"
+
 root=""
 for candidate in "$cwd" "${CLAUDE_PROJECT_DIR:-}" "$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)"; do
     [ -z "$candidate" ] && continue
-    if [ -f "$candidate/.claude/handoffs/.relaunch" ]; then
+    if [ -f "$candidate/.claude/handoffs/$sentinel_name" ]; then
         root="$candidate"
         break
     fi
 done
+
+# Housekeeping, only when we know our own id: clear a legacy unscoped sentinel
+# and any scoped one left behind by a session that has since gone away. Deleting
+# rather than acting on them is the point — an unscoped sentinel has no
+# recoverable owner, and acting on it is exactly the bug above.
+if [ -n "$sid" ]; then
+    for d in "$cwd" "${CLAUDE_PROJECT_DIR:-}"; do
+        [ -n "$d" ] && [ -f "$d/.claude/handoffs/.relaunch" ] || continue
+        rm -f "$d/.claude/handoffs/.relaunch"
+        log "removed a legacy unscoped sentinel in $d (owner unknowable — not relaunching)"
+    done
+    find "$cwd/.claude/handoffs" -maxdepth 1 -name '.relaunch.*' -mtime +1 \
+        -delete 2>/dev/null || true
+fi
+
 [ -z "$root" ] && exit 0
 
-sentinel="$root/.claude/handoffs/.relaunch"
+sentinel="$root/.claude/handoffs/$sentinel_name"
 doc="$(head -1 "$sentinel" 2>/dev/null | tr -d '\r\000-\010\013\014\016-\037')"
 # Consume unconditionally. A malformed sentinel must not re-fire on every
 # subsequent Stop for the rest of the session.

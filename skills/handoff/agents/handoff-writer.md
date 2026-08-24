@@ -51,6 +51,18 @@ Do the reconstruction labor thoroughly and return a finished document.
 
 # Rules
 
+- **Respect the size budget: 40 KB (~600 lines) target, 80 KB (~1,200 lines) hard
+  ceiling.** `wc -c` the file before you return. The document is read *in full* at
+  the start of every session in its chain, so its size is paid over and over — a
+  366 KB handoff (measured 2026-08-24) inverts the whole point of the command that
+  produced it. **Over budget is a signal to prune, never to abbreviate the open
+  work**: open items, live traps, and decisions still owed keep their full length,
+  because they are what the next session acts on. What comes out is *finished*
+  content — bodies of ticked items, log entries beyond the recent five, superseded
+  decisions and stacked snapshots, anything already stated in another artifact. If
+  all of that is gone and it is still over the ceiling, say so in your return
+  message: the work has outgrown one document, and that is the caller's call to
+  make, not a licence to shave the live half.
 - **Do not duplicate content that already lives in another artifact** — PRDs,
   plans, ADRs, issues, commits, diffs. Reference them by path or URL. A handoff
   that restates an ADR goes stale the moment the ADR changes.
@@ -169,14 +181,32 @@ Everything in `# Rules` still binds. On top of them:
   inherited text were true for a session that has since ended. Anything you keep,
   you are asserting now — re-run the check or re-date it, per the "Date what you
   verified" rule. Inherited text is not exempt because you did not write it.
-- **Ticked items stay ticked, and completed work leaves the checklist.** If every
-  item is now done, say so plainly at the top rather than presenting a document that
-  looks like there is work left. The caller uses that to decide whether to relaunch
-  a session at all.
-- **The `## AMQ coordination` section is rewritten from the new capture**, not
-  merged with the old one. Routing, peers, and inbox state are point-in-time facts;
-  a section blending two sessions' values sends the next session's mail to a mailbox
-  nobody reads.
+- **Ticked items stay ticked, and their bodies collapse to one line** — title, date,
+  and the commit sha or PR that carries the work. Before deleting a body, move
+  anything still load-bearing out of it: a gotcha specific to this work becomes a
+  `## ⚠ <trap>` section, and a gotcha that is really a fact about the stack goes to
+  tribal-markdown or `memory/` behind a one-line pointer. Nothing else survives — a
+  closed item's reasoning is history, and its home is that session's progress-log
+  entry. This is where most of a runaway document's bytes are: 36% of the 366 KB
+  case was the bodies of items that were already closed. If every item is now done,
+  say so plainly at the top rather than presenting a document that looks like there
+  is work left; the caller uses that to decide whether to relaunch a session at all.
+- **A resolved decision keeps its ruling and loses its argument.** An entry under
+  `## Decisions needed` that has been answered becomes what was decided, by whom,
+  when, and the *why* in one clause. Delete the options and the reasoning; the
+  argument's home is the progress-log entry for the session that settled it.
+  **The superseded text is deleted, not demoted** — never leave a `D7` standing
+  beside a `D7 (superseded)`, which doubles the section and makes the reader
+  adjudicate between two things the session already chose between.
+- **Every point-in-time section is overwritten, never stacked.** `## AMQ
+  coordination` is the sharpest case — routing, peers, and inbox state are facts as
+  of a moment, and a section blending two sessions' values sends the next session's
+  mail to a mailbox nobody reads — so it is rewritten from the new capture, not
+  merged with the old one. The same holds for every section of that class: branch
+  and worktree state, lease holders, verification counts, environment snapshots.
+  One dated block, rewritten. A stack of dated snapshots is not history; it is a
+  pile of wrong answers a future session may act on, and in the 366 KB case six dead
+  AMQ snapshots carried 29 KB on their own.
 - **Re-derive `## Window slug` against the work that is still open**, rather than
   preserving the inherited one. The slug named what the *last* session was going to
   do; if that is now finished, keeping it labels a window for work nobody is doing.

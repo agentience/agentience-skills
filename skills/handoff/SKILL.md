@@ -5,7 +5,7 @@ argument-hint: "[description of next session] [--inline] [--no-relaunch] | --nex
 disable-model-invocation: true
 ---
 
-**Last Updated: 2026-08-11 10:36**
+**Last Updated: 2026-08-24 12:05**
 
 This skill has three modes. Look at `$ARGUMENTS` to decide which one applies.
 
@@ -52,6 +52,35 @@ the full statement of it lives in `agents/handoff-writer.md` under Rules. In sho
 - **Decisions the user owes go in the doc**, under `## Decisions needed`, with
   options and a recommendation — never left in conversation, which the next session
   cannot read.
+
+### Size budget
+
+**Target 40 KB (~600 lines). Never exceed 80 KB (~1,200 lines).** Check it with
+`wc -c .claude/handoffs/<name>.md` before you hand the document on.
+
+The number exists because a handoff is read *in full* at the start of every session
+in its chain, so its size is paid over and over — which inverts the point of this
+command, ending an expensive session cheaply. Measured 2026-08-24 on a real chain:
+one document had reached 366 KB / 5,357 lines, of which 36% was the bodies of work
+items already ticked closed and 22% was a 54-entry progress log against a stated cap
+of five.
+
+**Over budget is a signal to prune, never to abbreviate the open work.** Open items,
+live traps, and decisions still owed keep their full length — they are the part the
+next session acts on, and shortening them is how you turn a fat document into a
+useless one. What comes out is *finished* content, in this order:
+
+1. Bodies of ticked work items — collapsed to title, date, and sha.
+2. Progress-log entries beyond the recent five.
+3. Superseded decisions and stacked point-in-time snapshots — deleted, not demoted.
+4. Anything already stated in another artifact, replaced by a reference to it.
+
+If all four are done and the document is still over 80 KB, the work has outgrown one
+document. Say so, and split the *finished* thread off into its own archived doc —
+never shave the live one to fit.
+
+Read mode step 7 enforces this turn by turn as a session works; this is the number it
+enforces against.
 
 ### The document is a living record, not a snapshot
 
@@ -575,16 +604,47 @@ Resume work by reading a handoff doc and using it to kick off this session. Pars
      have started `- [ ] **(in progress)**` with a line on where it stands, so an
      interrupted session leaves a half-finished item legible rather than looking
      untouched.
+   - **Collapse a ticked item's body in the same turn you tick it.** The checklist
+     line stays; the body under it goes, replaced by title, date, and the commit sha
+     or PR that carries it. Do this *as you tick*, never as a cleanup pass deferred
+     to a later mode — a collapse that only happens at `--next`, on a branch that
+     mostly does not run, is how one document reached 366 KB with 36% of its bytes in
+     items that were already closed. **Before deleting the body, move anything still
+     load-bearing out of it:** a gotcha specific to this work becomes a
+     `## ⚠ <trap>` section in this document, and a gotcha that is really a fact about
+     the stack (a package that cannot be imported under Jest, a cache with no
+     discriminator) goes to tribal-markdown or `memory/` and leaves a one-line
+     pointer here. Nothing else in the body survives — a closed item's reasoning is
+     history, and history's home is that session's progress-log entry.
    - **Add items you discover**, and strike or delete ones the work made moot —
      saying why in one clause. A stale item costs the next session a re-investigation.
+   - **Point-in-time sections are overwritten, never stacked.** Anything describing
+     state as of a moment — `## AMQ coordination`, branch or worktree state, lease
+     holders, verification counts, inbox state — is **one dated block, rewritten from
+     the current capture**. Never add a second dated snapshot beside the old one and
+     leave the reader to diff them: the superseded values are not history, they are
+     wrong answers a future session may act on. The same rule governs superseding a
+     decision or an item — **the superseded text is deleted, not demoted.** A `D7`
+     kept beside a `D7 (superseded)` doubles the document and makes the reader
+     adjudicate between two things you already chose between.
    - **Append to `## Progress log`**, one dated line per meaningful change
-     (`date +"%Y-%m-%d %H:%M"`). Append; do not rewrite earlier entries.
-   - **Move the answers up.** When you settle something listed under
-     `## Decisions needed` or as an open question, record the decision and its
-     rationale in the document and remove it from the open list. When you hit a new
-     trap, add it beside the item it bites.
+     (`date +"%Y-%m-%d %H:%M"`). Append; do not rewrite earlier entries. **Keep the
+     log to roughly the five most recent entries, trimming as you append** — not at
+     `--next`. The log is a short tail on a current document, not an archive; it is
+     read in full at the start of every session in the chain. **Before dropping an
+     older entry, confirm the fact it carries is represented in a narrative
+     section.** An entry whose only record was that line is data loss, and that is
+     the failure mode of trimming.
+   - **Move the answers up, and drop the argument.** When you settle something listed
+     under `## Decisions needed` or as an open question, keep the **ruling** — what
+     was decided, by whom, when, and the *why* in one clause — and delete the options
+     and the reasoning that produced it. The argument's home is this session's
+     progress-log entry. When you hit a new trap, add it beside the item it bites.
    - **Refresh `**Last Updated**` on every edit**, and re-date any verification
      claim you re-ran (`223/227, verified <date> on <sha>`).
+   - **Check the size budget before you hand the document on** — `wc -c` it against
+     Write mode's *Size budget* rule (40 KB target, 80 KB ceiling). Over budget means
+     prune finished content, never shorten the open work.
    - **Do not narrate the update.** Editing the file is the report; do not also
      summarize the change back to the user.
 

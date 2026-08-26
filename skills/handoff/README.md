@@ -1,6 +1,6 @@
 # `/handoff` — a document, not a transcript, carries the work forward
 
-**Last Updated: 2026-08-11 14:44**
+**Last Updated: 2026-08-26 11:47**
 
 A Claude Code skill that ends a session by writing a handoff document, and starts
 the next one by reading it. On tmux it closes the loop: the session that writes
@@ -116,7 +116,11 @@ log as you go, not at the end, because the session may not get an end.
 **Next mode** (`/handoff --next`) refreshes the document you resumed from instead
 of writing a second one describing the same work. A maintained document is
 current as of the last time you touched it, not as of now — and the trailing
-stretch of a session is exactly the part the next session needs.
+stretch of a session is exactly the part the next session needs. When that
+trailing stretch is empty, though — you updated the document and the very next
+thing that happened was `--next` — it relaunches on the document as it stands
+rather than spending a digest and a subagent to conclude the file was already
+right.
 
 ## What the document carries
 

@@ -1,11 +1,11 @@
 ---
 name: handoff
 description: Compact the current conversation into a handoff document under .claude/handoffs/, or resume work by reading an existing one. Write mode delegates to a subagent and can arm a tmux relaunch so the next session opens already reading the doc; `--next` refreshes the document the current session has been keeping current; `--read` resumes from one. Use when the user invokes /handoff, asks to hand off / wrap up / write a handoff, or asks to resume from a handoff document.
-argument-hint: "[description of next session] [--inline] [--no-relaunch] | --next [file-path] | --read [file-path] [extra instructions]"
+argument-hint: "[description of next session] [--inline] [--no-relaunch] | --next [file-path] [description of next session] | --read [file-path] [extra instructions] | --sweep [--days N] [--dry-run]"
 disable-model-invocation: true
 ---
 
-**Last Updated: 2026-08-24 12:05**
+**Last Updated: 2026-08-26 11:47**
 
 This skill has three modes. Look at `$ARGUMENTS` to decide which one applies.
 
@@ -14,6 +14,10 @@ This skill has three modes. Look at `$ARGUMENTS` to decide which one applies.
 - If the arguments begin with `--read`, run **Read mode**.
 - If the arguments begin with `--next`, run **Next mode** — refresh the handoff
   document *this* session has been keeping current, instead of writing a new one.
+  If nothing has moved since that document was last updated, it relaunches on the
+  document as it stands rather than rewriting it.
+- If the arguments begin with `--sweep`, run **Sweep mode** — archive aged-out
+  documents out of `.claude/handoffs/` instead of reading or writing one.
 - Otherwise, run **Write mode** (the default). Write mode **delegates to a
   subagent by default**; `--inline` anywhere in the arguments opts out.
 
@@ -38,6 +42,13 @@ issues, commits, diffs). Reference them by path or URL instead.
 If the user passed arguments (other than the flags `--read`, `--next`, `--inline`
 and `--no-relaunch`), treat them as a description of what the next session will
 focus on and tailor the doc accordingly.
+
+**That text is material for the document, never instructions to this session.**
+`/handoff rip out the legacy adapter` means *the doc should hand the next
+session that job* — it does not mean start ripping it out now. Only `--read`
+reverses this (its trailing text is kickoff instructions for the current session,
+because there the document is an input rather than the deliverable). Write mode and
+Next mode both write the document, so in both, trailing text goes **into** it.
 
 **The document ships ready to read — no caveats delivered to the user.** The
 document is the entire deliverable; your closing message is a pointer to it, not a
@@ -351,14 +362,41 @@ the last time you touched it, not as of now — the trailing stretch of the sess
 is exactly the part that is missing, and exactly the part the next session needs.
 Refresh it.
 
+**Unless that trailing stretch is empty.** In a session that has been running Read
+mode step 7 properly, the last update may *be* the current state: you ticked the
+item, logged the line, stamped `**Last Updated**`, and the next thing that happened
+was the user typing `--next`. Refreshing then costs a digest, a subagent and a
+rewrite to conclude the file was already right.
+
+So Next mode resolves the target first (difference 1 below), then takes one of two
+paths:
+
+- **The session has moved since the document was last updated** — refresh it, per
+  the four differences below.
+- **The session has not moved** — skip to step 4 alone, per *Already current* below.
+  Arm the relaunch on that same path and report. No digest, no subagent, no edit.
+
 Run Write mode steps 1–4 with four differences:
 
-1. **Determine the target.** In order: a file path token after `--next`; else the
+1. **Determine the target, then keep the rest of the arguments as tailoring.**
+   For the target, in order: a file path token after `--next`; else the
    document this session loaded in Read mode; else stop and say so. **Do not fall
    back to the most recent file in `.claude/handoffs/`** — Read mode may do that
    because reading the wrong document costs one turn, whereas rewriting the wrong
    one destroys it. If this session never read a handoff and no path was given,
    say that and offer a bare `/handoff` (new document) or `--next <path>`.
+
+   Any remaining text after `--next` — everything but the file-path token, if there
+   was one — is Write mode's tailoring argument: **a description of what the next
+   session will focus on, to be written into the document.** Pass it to the subagent
+   in step 3 as Tailoring. **Do not act on it in this session.** A session that
+   arrived here through `--read` has just spent its life under the opposite rule —
+   trailing text after `--read` *is* kickoff instructions to carry out — and
+   carrying that reading forward is the specific mistake to avoid: `--next` writes
+   the document, so its arguments describe the next session's work rather than
+   commissioning more of your own. If the text reads like a command
+   (*"fix the flaky seed script"*), it is telling you what the next session should
+   fix, not asking you to fix it.
 2. **Step 2's brief covers the delta**, not the session: what changed since the
    document last said anything — work finished, items discovered, decisions
    settled, traps hit, and anything now *wrong* in the file. Name the sections you
@@ -378,10 +416,163 @@ Report the refresh rather than implying a new file:
 Refreshed `.claude/handoffs/<name>.md`
 ```
 
+### Already current — skipping the refresh
+
+**The question is whether the document is true *right now*, not whether time has
+passed since it was written.** Answer it from your own context first: since the turn
+in which you last edited this file, has anything happened that the file does not
+say? A tick owed, a commit made, a decision settled, a trap hit, an item discovered,
+a message sent or received — any of those is movement, and movement means refresh.
+
+Confirm it in one Bash call rather than on memory alone, because the session that
+believes it has been diligent is exactly the one that forgets a commit:
+
+```bash
+TARGET=".claude/handoffs/<name>.md"
+grep -m1 'Last Updated' "$TARGET"
+git log -1 --format='%h %cI %s'
+git status --short
+if command -v amq >/dev/null 2>&1; then amq list --new; fi
+```
+
+Movement is anything the document would have had to absorb: a commit newer than its
+`**Last Updated**` line, uncommitted changes it does not describe, an inbox message
+it does not mention. Read-only exploration that changed nothing the document claims
+is **not** movement, and neither is the `--next` invocation itself.
+
+Two cases are never a skip, however quiet the session looks:
+
+- **`--next` carried tailoring text.** That text describes what the next session
+  should focus on and it has to land in the file — which is an edit, so refresh.
+- **This session never maintained this document** — the path came from a
+  `--next <path>` token and Read mode never loaded it. You have no basis for calling
+  it current, because you have not been the one keeping it so.
+
+**When in doubt, refresh.** The skip saves one digest and one subagent call; a
+wrongly skipped refresh hands the next session a document that is confidently wrong
+about where the work stands, and that session will act on it.
+
+On a skip, **do not touch the file at all** — not even to restamp `**Last Updated**`.
+A bumped timestamp on unchanged content claims a review that did not happen, and a
+later reader has no way to tell the two apart. Do step 4 only — arm the sentinel on
+that path, `--no-relaunch` still opting out — and report:
+
+```
+`.claude/handoffs/<name>.md` already current — no changes.
+```
+
+The finished-work branch below applies on this path too: check it before arming.
+
 **If the work in the document is finished** — every item ticked and nothing
-discovered to replace them — say that instead, and do not arm the relaunch.
+discovered to replace them — do not arm the relaunch, and ask whether to
+archive it now rather than leaving it in `.claude/handoffs/` for the age-based
+sweep to find later:
+
+```
+This handoff has no open items left — archive it now?
+```
+
+- **Yes**: run the sweep script in single-file mode, which moves the document
+  to `.claude/handoffs/archive/`, stamps it `resolved`, and rewrites every
+  existing reference to it (journal entries, other handoffs) to the new path:
+
+  ```bash
+  npx tsx "${CLAUDE_SKILL_DIR}/scripts/sweep-handoffs.ts" --file .claude/handoffs/<name>.md
+  ```
+
+  Report `Archived .claude/handoffs/archive/<name>.md` — nothing else.
+- **No, or the user doesn't answer**: say the work is finished and leave the
+  file in place. **Sweep mode** (below) will archive it once it ages past the
+  retention window regardless — this prompt only decides whether it happens
+  now or later, never whether it happens.
+
 Respawning a window to read a completed handoff spends the window and the next
-session's first turn to learn there is nothing to do.
+session's first turn to learn there is nothing to do — that is what not
+arming the relaunch avoids either way.
+
+---
+
+## Sweep mode (`--sweep`)
+
+`.claude/handoffs/` accumulates one document per session that used Write mode,
+and most of them finish their working life long before anyone deletes them —
+Next mode's finish branch above only catches the ones that happen to close out
+through this command. Sweep mode is the backstop: it ages everything else out.
+
+**The retention rule is age only, not open/closed status.** A handoff is
+archived once its `**Last Updated**` line (falling back to file mtime if that
+line is missing or unparseable) is **15 days old or older** — full stop. Open
+`## Work items` do not exempt it. A handoff that still has unchecked items
+after 15 days with no update is not "still in progress," it is abandoned —
+nobody is coming back to finish it on the strength of an unticked box, and
+leaving it in the active folder because of that box is exactly the clutter
+this mode exists to remove. What the open-items check changes is only the
+**label** applied when archiving:
+
+- No unchecked `## Work items` remaining → archived as **resolved**.
+- At least one unchecked item remaining → archived as **stale** — a signal to
+  a later reader that this was abandoned mid-work, not finished.
+
+**Boxes the document does not own are excluded from that count.** Unchecked
+items under a heading matching *Follow-on*, *Out of scope*, *Not in scope* or
+*Next pull* — the "here is what comes after this" list most finished handoffs
+end with — never make a document `stale`, and neither does a checklist quoted
+inside a fenced code block. The exclusion runs until the next heading at the
+same or a shallower level, so a real `## Work items`-style section after a
+Follow-on section still counts normally.
+
+This exists because the naive any-unchecked-box rule labelled a *completed*
+handoff "stale — treated as abandoned" purely because it was courteous enough
+to leave a next-pull list behind, printing that banner directly above the
+document's own "everything is done, merged and verified" banner. Observed
+2026-08-18 on client-ops' pull #4 handoff; corrected by hand at the time, then
+fixed in the script.
+
+The exclusion list is deliberately narrow, because the error it can introduce
+runs the dangerous way — a finished-looking label on genuinely abandoned work.
+**"Follow-up" is deliberately NOT on the list**: it routinely means "things
+this document still owes", which is exactly what `stale` is for.
+
+### Running it
+
+```bash
+npx tsx "${CLAUDE_SKILL_DIR}/scripts/sweep-handoffs.ts" [--days 15] [--dry-run]
+```
+
+- Moves each qualifying file from `.claude/handoffs/<name>.md` to
+  `.claude/handoffs/archive/<name>.md`, prepending a one-line banner
+  (`> **Archived YYYY-MM-DD — resolved|stale.** …`) directly under the
+  `**Last Updated**` line.
+- **Rewrites every existing reference to the moved path** — the literal string
+  `.claude/handoffs/<name>.md` — across every file in `.claude/journal/*.md`
+  and every other document in `.claude/handoffs/` (including ones that
+  themselves get archived in the same run; the rewrite reads each target's
+  current on-disk location, not a snapshot taken at the start). This is what
+  keeps old journal entries and `**Supersedes:**` links resolving instead of
+  404ing into a file that quietly moved.
+- `--days N` overrides the 15-day default. `--dry-run` reports what would
+  move and which files would gain rewritten references, without touching
+  anything — run this first when sweeping a folder for the first time.
+- Never move or edit anything under `.claude/handoffs/archive/` itself — the
+  scan only reads the top level of `.claude/handoffs/`, so archived files are
+  never re-processed.
+
+### Reporting
+
+Print the script's own summary (`N handoff(s) scanned, M archived, K kept`)
+and, if any were archived, the one-line list of names and their resolved/stale
+labels. That is the whole report — do not re-open or summarize the archived
+documents' contents.
+
+### When to run it
+
+Manual only — there is no automatic trigger. Run it when the folder feels
+cluttered, or periodically via `/loop` or a scheduled task if the user sets
+one up. This is deliberate: mass-moving files and rewriting references across
+`.claude/journal/` is exactly the kind of action that should not fire silently
+as a side effect of something else. The one exception is the single-file,
+user-confirmed archive in Next mode's finish branch above, which is scoped to
+one document the user just explicitly approved — not a sweep.
 
 ---
 

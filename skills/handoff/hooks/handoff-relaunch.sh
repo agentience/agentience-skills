@@ -111,6 +111,8 @@ if [ -n "$sid" ]; then
     done
     find "$cwd/.claude/handoffs" -maxdepth 1 -name '.relaunch.*' -mtime +1 \
         -delete 2>/dev/null || true
+    find "$cwd/.claude/handoffs" -maxdepth 1 -name '.relaunched.*' -mtime +1 \
+        -delete 2>/dev/null || true
 fi
 
 [ -z "$root" ] && exit 0
@@ -121,6 +123,24 @@ doc="$(head -1 "$sentinel" 2>/dev/null | tr -d '\r\000-\010\013\014\016-\037')"
 # subsequent Stop for the rest of the session.
 rm -f "$sentinel"
 [ -z "$doc" ] && { log "empty sentinel in $root"; exit 0; }
+
+# ONE relaunch per session, enforced here as well as in the skill's step 4.
+#
+# Observed 2026-08-26: a session ran `/handoff --next` once, armed, reported, and
+# its Stop spawned a successor. Five minutes later a background subagent it had
+# launched returned; that task notification re-opened a turn in a session which
+# had already finished, and it re-ran step 4 verbatim — arming a SECOND sentinel
+# and spawning a SECOND successor. Both opened the same document and began
+# editing the same worktree, neither able to see the other.
+#
+# The sentinel cannot carry this guard itself: it is consumed on the first fire,
+# so by the second arm there is nothing left to detect. `.relaunched.<sid>` is
+# written below only when we actually launch, and is swept with the sentinels.
+fired="$root/.claude/handoffs/.relaunched.$sid"
+if [ -n "$sid" ] && [ -e "$fired" ]; then
+    log "session $sid already relaunched (-> $(head -1 "$fired" 2>/dev/null)); refusing a second one for $doc"
+    exit 0
+fi
 
 # Normalize to a project-relative path and confirm the document is really there.
 # A bare filename resolves under .claude/handoffs/, matching how read mode itself
@@ -188,10 +208,15 @@ pane="${CLAUDE_TMUX_PANE:-${TMUX_PANE:-}}"
 # Give the final assistant message a beat to render before the window is taken.
 sleep 1
 
+# `respawn-window -k` kills the pane this process is running in, so the marker
+# has to exist before the call, not after it.
+[ -n "$sid" ] && printf '%s\n' "$doc_rel" > "$fired" 2>/dev/null
+
 if [ -n "$pane" ] && "$TMUX_BIN" display-message -p -t "$pane" '#{window_id}' >/dev/null 2>&1; then
     target="$pane"
     "$TMUX_BIN" respawn-window -k -t "$pane" -c "$root" "$shell_cmd" 2>>"$LOG" || {
         log "respawn-window failed for pane $pane"
+        rm -f "$fired" 2>/dev/null
         exit 0
     }
     log "respawned $pane in place -> $doc_rel"
@@ -199,6 +224,7 @@ else
     if ! "$TMUX_BIN" has-session -t "=$session" 2>/dev/null; then
         "$TMUX_BIN" new-session -d -s "$session" -c "$root" "$shell_cmd" 2>>"$LOG" || {
             log "new-session $session failed"
+            rm -f "$fired" 2>/dev/null
             exit 0
         }
         target="$session:"
@@ -206,6 +232,7 @@ else
     else
         target="$("$TMUX_BIN" new-window -P -F '#{window_id}' -t "=$session:" -c "$root" "$shell_cmd" 2>>"$LOG")" || {
             log "new-window in $session failed"
+            rm -f "$fired" 2>/dev/null
             exit 0
         }
         log "new window $target in $session -> $doc_rel"

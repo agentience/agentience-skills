@@ -5,7 +5,7 @@ argument-hint: "[description of next session] [--inline] [--no-relaunch] | --nex
 disable-model-invocation: true
 ---
 
-**Last Updated: 2026-08-26 11:47**
+**Last Updated: 2026-08-26 15:51**
 
 This skill has three modes. Look at `$ARGUMENTS` to decide which one applies.
 
@@ -249,9 +249,33 @@ can come after it.** Unless `--no-relaunch` appears in the arguments, write the
 document's project-relative path as the only line of a sentinel file:
 
 ```bash
-printf '%s\n' ".claude/handoffs/<name>.md" \
-  > ".claude/handoffs/.relaunch.$CLAUDE_CODE_SESSION_ID"
+ARMED=".claude/handoffs/.relaunched.$CLAUDE_CODE_SESSION_ID"
+if [ -e "$ARMED" ]; then
+  echo "ALREADY RELAUNCHED for $(cat "$ARMED") — not arming again"
+else
+  printf '%s\n' ".claude/handoffs/<name>.md" \
+    > ".claude/handoffs/.relaunch.$CLAUDE_CODE_SESSION_ID"
+  echo "sentinel armed"
+fi
 ```
+
+**If it prints `ALREADY RELAUNCHED`, this session has already handed off and its
+successor is already running.** Stop: do not arm, do not re-report a path as
+though this were a fresh handoff, and do not redo the write. Answer whatever woke
+you, or say the handoff already went out, and end the turn.
+
+**The guard exists because a finished turn can be reopened.** Step 4 reads as the
+last thing a session ever does, and usually is — but a background subagent that
+returns after the report re-opens the turn with a task notification, and a session
+resuming there will run step 4 again from the top, arming a second time. Observed
+2026-08-26: one `--next`, one report at 14:48:53, a successor spawned at 14:48:54.
+At 14:53:09 a `handoff-writer` subagent launched five minutes earlier finally
+returned; the session woke, re-armed at 14:53:40, reported again, and a **second**
+successor spawned at 14:53:45. Both opened the same document, in the same tab, and
+began editing the same worktree — neither with any way to see the other. The
+sentinel cannot carry this guard itself: the hook consumes it on the first fire, so
+by the second arm there is nothing left to detect. `.relaunched.<session-id>` is
+written by the hook when it actually launches, and outlives the sentinel.
 
 **The `$CLAUDE_CODE_SESSION_ID` suffix is load-bearing — do not drop it.** The
 sentinel used to be a single `.relaunch` per project root, which is fine for one
@@ -270,7 +294,10 @@ session is running in with a fresh `claude` already running
 `/handoff --read <that doc>`, so the next session is waiting, primed, whenever
 the user comes back to it. Outside a tmux pane — say the VS Code extension — it
 opens a window in the session named by the project's `.tmuxp.yaml` instead. The
-hook deletes the sentinel whether or not it acts, so a stale one never re-fires.
+hook deletes the sentinel whether or not it acts, so a stale one never re-fires,
+and it stamps `.claude/handoffs/.relaunched.<session-id>` with the document it
+launched — the marker the guard above reads, and the one the hook itself checks
+before relaunching a session that already has a successor.
 
 **The relaunch half is tmux-only, and that is fine.** With no tmux on the machine,
 or with the `Stop` hook not registered, the hook is absent or exits 0 immediately;

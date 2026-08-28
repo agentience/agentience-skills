@@ -2,6 +2,10 @@
 #
 # Install the `handoff` skill for Claude Code.
 #
+# For a STANDALONE install only. If you have the `agentic` plugin installed, the
+# skill is already there as `/agentic:handoff` and you want none of this — except
+# possibly the hook, which the plugin deliberately does not register for you.
+#
 # Deliberately opt-in and deliberately boring: it tells you every path it is
 # about to touch, backs up settings.json before editing it, and `--uninstall`
 # reverses everything it did. Nothing here runs on its own — you ran it.
@@ -212,16 +216,17 @@ fi
 run cp "$SRC/agents/handoff-writer.md" "$AGENT_DEST/handoff-writer.md"
 did "installed writer agent to $AGENT_DEST/handoff-writer.md"
 
-# tmux relaunch.
+# Relaunch hook. tmux OR herdr is enough — the hook picks its backend at run
+# time from HERDR_ENV/HERDR_PANE_ID, and a Herdr-only machine has no tmux at all.
 if [ "$WANT_HOOK" = 1 ]; then
-  if command -v tmux >/dev/null 2>&1; then
+  if command -v tmux >/dev/null 2>&1 || command -v herdr >/dev/null 2>&1; then
     run cp "$SRC/hooks/handoff-relaunch.sh" "$HOOK_DEST/handoff-relaunch.sh"
     run cp "$SRC/hooks/tmux-rename.sh"      "$HOOK_DEST/tmux-rename.sh"
     run chmod 755 "$HOOK_DEST/handoff-relaunch.sh" "$HOOK_DEST/tmux-rename.sh"
     did "installed hooks to $HOOK_DEST"
     edit_settings add
   else
-    say "tmux not found — skipping the relaunch hook."
+    say "neither tmux nor herdr found — skipping the relaunch hook."
     say "Everything except the auto-respawn works without it."
   fi
 else

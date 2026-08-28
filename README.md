@@ -1,6 +1,6 @@
 # agentience-skills
 
-**Last Updated: 2026-08-11 11:35**
+**Last Updated: 2026-08-28 14:20**
 
 Claude Code skills I use daily and think are worth sharing. Each one is
 self-contained: a directory under `skills/`, installable on its own, with its own
@@ -10,7 +10,7 @@ README and its own opt-in `install.sh`.
 
 | Skill | What it does |
 |---|---|
-| [`handoff`](skills/handoff) | End a session by writing a handoff document; start the next by reading it. On tmux, the writing session respawns its own window into a fresh session already reading the doc. |
+| [`handoff`](skills/handoff) | End a session by writing a handoff document; start the next by reading it. In tmux or Herdr, the writing session hands its own window to a fresh session already reading the doc — or, with `--split`, opens one in a pane below and keeps its own. |
 
 ## Installing
 

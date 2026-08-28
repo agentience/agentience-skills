@@ -6,13 +6,14 @@ flowchart LR
     args{"how was /handoff<br/>invoked?"}
     args -->|"--read"| read("Read mode")
     args -->|"--next"| next("Next mode")
+    args -->|"--sweep"| sweep("Sweep mode")
     args -->|"bare, or a description"| write("Write mode")
 
     write --> newdoc[/"a NEW document"/]
     next --> samedoc[/"the SAME document,<br/>revised in place"/]
     read --> resume("rebuild context,<br/>then keep the doc current")
+    sweep --> archived[/"aged-out documents,<br/>moved to archive/"/]
 
     newdoc --> arm("arm the relaunch sentinel")
     samedoc --> arm
     resume -.->|"at session end"| next
-    classDef external stroke-dasharray:4 3

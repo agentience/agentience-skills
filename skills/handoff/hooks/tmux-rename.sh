@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Rename the tmux window that owns THIS Claude session — and only that one.
+# Rename the window that owns THIS Claude session — and only that one.
+#
+# Two backends: tmux (the original, unchanged) and Herdr, which names a pane
+# and — only when that pane has its tab to itself — the tab. See the herdr
+# block below. Everything from here to it is about the tmux path.
 #
 # Why this exists: a bare `tmux rename-window <title>` does NOT target the
 # caller. With no -t and no $TMUX in the environment, tmux falls back to the
@@ -19,35 +23,115 @@
 #   <hook json on stdin>                dispatches on .hook_event_name:
 #                                         SessionStart -> seed from cwd
 #                                         SessionEnd   -> reset to term<index>
-#                                       *** NOT REGISTERED BY install.sh ***
+#                                       *** CURRENTLY UNREGISTERED — see below ***
 #
-# The `/handoff` skill uses the EXPLICIT-CALL mode only. Read mode calls
-#     ~/.claude/hooks/tmux-rename.sh "<slug>"
-# with the slug it parsed out of the handoff document's `## Window slug` section.
-# Nothing registers this script as a SessionStart/SessionEnd hook, and you should
-# think twice before doing so yourself.
+# Status: EXPLICIT-CALL ONLY as of 2026-08-11.
 #
-# Why hook mode is left dormant: the automatic path can only ever write two names
-# — basename(cwd) on SessionStart and term<index> on SessionEnd — never a
-# task-descriptive slug. In practice windows sit at the generic project name for
-# the life of a session, so every window in a repo carries the same label, which
-# is exactly what a descriptive title is for. Worse, three paths clobber a name
-# that was set deliberately:
-#   1. SessionStart with source=clear overwrites unconditionally, bypassing the
+# The SessionStart/SessionEnd registrations were removed from
+# ~/.claude/settings.json. Hook mode below is intact but nothing invokes it.
+#
+# Why: the automatic path could only ever write two names — basename(cwd) on
+# SessionStart and term<index> on SessionEnd — never a task-descriptive slug.
+# In practice windows sat at the generic project name for the life of a
+# session, and three paths clobbered a name that had been set deliberately:
+#   1. SessionStart with source=clear overwrote unconditionally, bypassing the
 #      "already meaningful, leave it alone" guard below;
-#   2. SessionEnd resets to term<index> on logout/prompt_input_exit/other;
-#   3. the seed itself plants the generic name that then has to be corrected.
-# Hook mode is kept intact because it is useful if you want a default label on
-# windows nothing has named yet — but fix those three clobbers first, or the
-# deliberate slug loses the race.
+#   2. SessionEnd reset to term<index> on logout/prompt_input_exit/other;
+#   3. the seed itself planted the generic name that then had to be corrected.
+# The descriptive rename is now solely the explicit call, per the tmux section
+# of ~/.claude/CLAUDE.md.
 #
-# To enable it, add to ~/.claude/settings.json:
+# To re-enable hook mode, restore in settings.json (and fix the three clobbers
+# above first, or the same complaint returns):
 #   "SessionStart": [ { "hooks": [ { "type": "command",
 #     "command": "~/.claude/hooks/tmux-rename.sh" } ] } ],
 #   "SessionEnd":   [ { "hooks": [ { "type": "command",
 #     "command": "~/.claude/hooks/tmux-rename.sh" } ] } ]
 
 set -uo pipefail
+
+# Sanitize: single line, no control bytes, spaces -> dashes, bounded length.
+sanitize_title() {
+  printf '%s' "${1:-}" | tr -d '\000-\037' | tr ' ' '-' | cut -c1-40
+}
+
+# ------------------------------------------------------------------ herdr ---
+# A Claude session running in a Herdr pane has no tmux window at all, and no
+# $TMUX_PANE, so everything below this block bails out at the pane check and
+# exits 0. That silence is what made the handoff slug contract a no-op under
+# Herdr for a week: Read mode calls this script, the script does nothing, and
+# the window keeps whatever name the relaunch hook wrote.
+#
+# Herdr names two things, and they are not interchangeable:
+#   pane  — always renamed. One pane is one session, so a pane label can always
+#           describe the work truthfully.
+#   tab   — renamed ONLY when it holds exactly one pane. `beside` relaunch mode
+#           puts two sessions in one tab, and a tab name can then only ever
+#           describe one of them; overwriting it would mislabel the other.
+#
+# Hook mode (no argument, JSON on stdin) is deliberately not implemented here:
+# it is unregistered in settings.json, and the only names it could write are
+# the generic ones the tmux comments above explain were the problem.
+HERDR_PANE="${HERDR_PANE_ID:-}"
+if [ -n "$HERDR_PANE" ]; then
+  HERDR_BIN="$(command -v herdr 2>/dev/null || true)"
+  for h in "$HOME/.cargo/bin/herdr" "$HOME/.local/bin/herdr" \
+           /opt/homebrew/bin/herdr /usr/local/bin/herdr; do
+    [ -n "$HERDR_BIN" ] && break
+    [ -x "$h" ] && HERDR_BIN="$h"
+  done
+  [ -z "$HERDR_BIN" ] && exit 0
+
+  # How many panes share this session's tab. Any failure to count answers 2,
+  # the conservative reading: leave the tab name alone.
+  herdr_tab_pane_count() {
+    local out
+    [ -n "${HERDR_TAB_ID:-}" ] && [ -n "${HERDR_WORKSPACE_ID:-}" ] || { printf '2'; return; }
+    out="$("$HERDR_BIN" pane list --workspace "$HERDR_WORKSPACE_ID" 2>/dev/null)" || { printf '2'; return; }
+    printf '%s' "$out" \
+      | jq --arg t "$HERDR_TAB_ID" '[.result.panes[] | select(.tab_id == $t)] | length' 2>/dev/null \
+      || printf '2'
+  }
+
+  # Whether the tab gets the name too. `auto` (the default) applies the
+  # single-pane rule above. A caller that KNOWS what the tab is about to hold —
+  # the handoff relaunch hook, which has just split a second pane in and knows
+  # whether it is about to close the first — overrides it, because at the moment
+  # it asks, the count is momentarily wrong in both directions.
+  herdr_should_rename_tab() {
+    [ -n "${HERDR_TAB_ID:-}" ] || return 1
+    case "${HERDR_RENAME_TAB:-auto}" in
+      never) return 1 ;;
+      force) return 0 ;;
+      *)     [ "$(herdr_tab_pane_count)" = "1" ] ;;
+    esac
+  }
+
+  herdr_title="${1:-}"
+
+  if [ "$herdr_title" = "--reset" ]; then
+    "$HERDR_BIN" pane rename "$HERDR_PANE" --clear >/dev/null 2>&1
+    if herdr_should_rename_tab; then
+      # Herdr has no `tab rename --clear`; its neutral label is the tab number,
+      # which is what an unnamed tab displays anyway.
+      idx="$("$HERDR_BIN" tab list --workspace "${HERDR_WORKSPACE_ID:-}" 2>/dev/null \
+        | jq -r --arg t "$HERDR_TAB_ID" '.result.tabs[] | select(.tab_id == $t) | .number' 2>/dev/null)"
+      [ -n "$idx" ] && [ "$idx" != "null" ] \
+        && "$HERDR_BIN" tab rename "$HERDR_TAB_ID" "$idx" >/dev/null 2>&1
+    fi
+    exit 0
+  fi
+
+  herdr_title=$(sanitize_title "$herdr_title")
+  [ -z "$herdr_title" ] && exit 0
+
+  "$HERDR_BIN" pane rename "$HERDR_PANE" "$herdr_title" >/dev/null 2>&1
+  herdr_should_rename_tab \
+    && "$HERDR_BIN" tab rename "$HERDR_TAB_ID" "$herdr_title" >/dev/null 2>&1
+  exit 0
+fi
+
+# ------------------------------------------------------------------- tmux ---
 
 # Hooks can run with a minimal PATH; resolve tmux explicitly.
 TMUX_BIN="$(command -v tmux 2>/dev/null || true)"
@@ -139,8 +223,7 @@ if [ -z "$title" ]; then
   fi
 fi
 
-# Sanitize: single line, no control bytes, spaces -> dashes, bounded length.
-title=$(printf '%s' "$title" | tr -d '\000-\037' | tr ' ' '-' | cut -c1-40)
+title=$(sanitize_title "$title")
 [ -z "$title" ] && exit 0
 
 # automatic-rename is off globally in ~/.tmux.conf; rename-window turns it off for

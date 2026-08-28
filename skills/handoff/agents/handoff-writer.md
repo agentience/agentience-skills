@@ -1,6 +1,6 @@
 ---
 name: handoff-writer
-description: Writes a `.claude/handoffs/` document from a session transcript digest plus a salience brief, or revises an existing one in place. Invoked by `/handoff` in its default delegated mode — not intended for direct use.
+description: Writes a `.claude/handoffs/` document from a session transcript digest plus a salience brief, or revises an existing one in place. Invoked by the `handoff` skill in its default delegated mode — not intended for direct use.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 color: cyan

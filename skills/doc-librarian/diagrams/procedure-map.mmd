@@ -1,0 +1,22 @@
+---
+config:
+  layout: elk
+---
+flowchart LR
+    invoke("invoke") --> setup("Setup<br/>install governance kit")
+    invoke --> A("A: Audit")
+    invoke --> B("B: Reorganize")
+    invoke --> C("C: Place a doc")
+    invoke --> D("D: Index")
+    invoke --> E("E: Curate")
+    invoke --> F("F: Govern")
+    invoke --> G("G: Bootstrap vocabulary")
+    invoke --> H("H: Deep-dive<br/>multi-agent")
+
+    G -.->|"draft vocab first"| E
+    E -.->|"weed before reshuffling"| A
+    A -.->|"structure after triage"| B
+    B -.->|"index after moves"| D
+    F -.->|"finalize after weeding"| G
+    E -.->|"fan out REVIEW bucket"| H
+    H -.->|"verdicts fed to"| E

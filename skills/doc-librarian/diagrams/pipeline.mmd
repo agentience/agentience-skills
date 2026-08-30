@@ -1,0 +1,31 @@
+---
+config:
+  layout: elk
+---
+flowchart LR
+    audit("Procedure A<br/>audit the collection")
+    nlp("analyze-docs.py<br/>optional NLP layer")
+    triage("Procedure E<br/>triage-docs.ts")
+    report[/"triage report<br/>KEEP / REVIEW / WEED"/]
+    deep("Procedure H<br/>one agent per batch")
+    verdicts[/"per-doc verdicts<br/>with evidence"/]
+    map[/"migration map"/]
+    signoff[/"user sign-off"\]
+    blast("Procedure B step 0<br/>measure the blast radius")
+    reorg("Procedure B<br/>migrate in batches")
+    apply("apply-actions.ts<br/>dry-run by default")
+    lint("lint-docs.ts<br/>links, tags, frontmatter")
+
+    audit --> triage
+    nlp -.->|"near-duplicate clusters"| triage
+    triage --> report
+    report --> deep
+    deep --> verdicts
+    verdicts --> map
+    report -.->|"skim REVIEW by hand"| map
+    map --> signoff
+    signoff --> blast
+    blast --> reorg
+    reorg --> apply
+    apply --> lint
+    lint -.->|"any new broken link"| reorg

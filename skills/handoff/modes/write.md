@@ -111,6 +111,10 @@ From your live context, not the transcript. 200–400 words, concrete:
   the result, say so where that task is described, not only here. A transcript records the
   messages but not that one of them created an obligation, so this is the class the
   subagent structurally cannot recover. Omit it and the next session defaults silently.
+  **Each of these also becomes an unticked work item naming the counterparty** — see
+  the *living record* rules in
+  [references/document-contract.md](../references/document-contract.md). Described in a
+  section alone, an obligation reads as already-arranged and therefore already met.
 - **Window slug** — 2–4 dashed words naming the work the *next* session picks up, per
   the [`## Window slug` contract](../references/window-slug.md). You are the only
   one who can pick this: the

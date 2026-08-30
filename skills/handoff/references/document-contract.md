@@ -44,6 +44,38 @@ document says. Write it so the next session can keep it true, and tell it to:
   `- [ ] **(in progress)**` and a one-line note on where they stand. An item is a
   unit a reader can finish and tick — not a phase heading, and not a paragraph.
   Anything blocked says what blocks it, on the item.
+- **Anything owed to a party outside this session is a work item, never prose.**
+  Write it as an unticked `- [ ]` that **names the counterparty**, in the same
+  checklist as everything else:
+
+  ```markdown
+  - [ ] **OWED to `ifti-dev2-91` (re-resolve — the handle changes):** collect the
+        three agreed captures when they report the run, and write the results
+        into the verification ledger.
+  ```
+
+  A narrative section describing the arrangement — "we report outcomes to the
+  other session", "there is a channel open with X" — is read by the next session
+  as **context about something already in place, and therefore already
+  satisfied**. Only an unticked box reads as a debt.
+
+  Measured 2026-08-29 on a three-session chain: the first session held a standing
+  obligation to report each run's outcome to a peer, recorded in prose. It ended
+  **without ever sending the report**. The second session rewrote it as an
+  unfulfilled item naming the counterparty, and it then survived two further
+  handovers intact. The distinction is not "write it down" — it was written down
+  the first time. It is "write it down as *not done yet*, and say *to whom*".
+
+  Naming the counterparty does a second job: it tells the next session **who to
+  re-resolve**. Handles are session-scoped and go stale, so `report the outcome`
+  is unactionable after a handover in a way that `report to <handle>, re-resolve
+  first` is not — the stale handle still names the *kind* of party to look for.
+
+  **A box must describe an action, not a state.** `- [ ] #12, #13 filed, not
+  scheduled` is a status wearing a checkbox: nobody can tick it, and it makes the
+  list look like it holds open work when it holds none. Either it is something
+  someone does, or it belongs in a narrative section.
+
 - **The document carries its own update instruction.** Directly under the
   `## Work items` heading, include the line:
 

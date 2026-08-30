@@ -282,8 +282,22 @@ in sync with the skill.
 
 ## Where this copy comes from
 
-This directory is the **canonical** copy — unlike `handoff` in this repo, there is
-no upstream to sync from.
+**There is a second copy, and you need to know about it before you edit either.**
+The skill also lives at `~/.claude/skills/doc-librarian/`, tracked in a separate
+private dotfiles repository. That is the copy Claude Code actually loads on the
+author's machine; this one is what everyone else installs.
+
+Two live copies of a skill diverge silently — there is one `version` field and no
+mechanism that compares behaviour — so **diff them before trusting either**:
+
+```bash
+diff -ru ~/.claude/skills/doc-librarian <this directory>
+```
+
+Treat **this** directory as canonical for anything published: the fixes described
+below were made here, and the raw URLs in `START-HERE.md` resolve here. If you have
+both, the durable arrangement is to let `install.sh` symlink `~/.claude/skills/`
+at this checkout, which collapses the two into one.
 
 The skill was developed against a real 9-package TypeScript monorepo and then
 hardened by running it on that repo's own 136-document corpus. That exercise

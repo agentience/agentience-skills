@@ -288,16 +288,28 @@ private dotfiles repository. That is the copy Claude Code actually loads on the
 author's machine; this one is what everyone else installs.
 
 Two live copies of a skill diverge silently — there is one `version` field and no
-mechanism that compares behaviour — so **diff them before trusting either**:
+mechanism that compares behaviour — so `scripts/sync-doc-librarian.sh` in this repo
+compares them for you:
 
 ```bash
-diff -ru ~/.claude/skills/doc-librarian <this directory>
+./scripts/sync-doc-librarian.sh --check    # report drift, exit 1 if any
+./scripts/sync-doc-librarian.sh --push     # this repo  -> installed copy
+./scripts/sync-doc-librarian.sh --pull     # installed copy -> this repo
 ```
 
-Treat **this** directory as canonical for anything published: the fixes described
-below were made here, and the raw URLs in `START-HERE.md` resolve here. If you have
-both, the durable arrangement is to let `install.sh` symlink `~/.claude/skills/`
-at this checkout, which collapses the two into one.
+It syncs the behavioural surface only — `SKILL.md`, `references/`, `scripts/`,
+`hooks/`, `templates/`, `TAGS.md`. `README.md`, `START-HERE.md`, `install.sh` and
+`diagrams/` are this copy's own publishing material and are deliberately left
+alone. It never commits, in either direction.
+
+`--pull` is a first-class direction, not a rescue hatch: most of this skill's
+fixes were authored by editing the installed copy *while using it*, which is how
+the two drifted in the first place.
+
+Treat **this** directory as canonical for anything published: the raw URLs in
+`START-HERE.md` resolve here. If you would rather have one copy than two, let
+`install.sh` symlink `~/.claude/skills/` at this checkout — the sync script
+detects that case and exits cleanly, because there is then nothing to sync.
 
 The skill was developed against a real 9-package TypeScript monorepo and then
 hardened by running it on that repo's own 136-document corpus. That exercise

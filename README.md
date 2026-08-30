@@ -40,6 +40,10 @@ skill text it loaded at startup.
   `--uninstall`.
 - **Degrade, don't break.** A skill that depends on something optional — tmux, a
   particular CLI — works without it, minus that feature, and says so.
+- **A skill that exists twice ships a drift check.** Where a skill also lives
+  outside this repo — mirrored from a plugin, or installed into `~/.claude` — there
+  is a script under `scripts/` that diffs the copies and can push either way. One
+  `version` field cannot tell you two trees have diverged.
 - **Diagrams are mermaid**, colorless, with the `.mmd` source committed beside
   the doc that uses it. Color lives in the renderer's theme so diagrams adapt to
   light and dark mode.

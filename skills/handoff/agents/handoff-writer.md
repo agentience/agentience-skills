@@ -83,6 +83,16 @@ Do the reconstruction labor thoroughly and return a finished document.
   reread your draft for `may`, `might`, `unclear`, `possibly`, `by the time you
   read this` — every hit is either a check you must run or a genuine unknown you
   must label as one. "Unverified" is honest; "you'll have to find out" is not.
+- **"Checkable" means claims the document asserts — not questions it hands
+  onward.** The rule above scopes to the *description*: confirm the state you are
+  writing down. It is not licence to solve the problem the document describes. If
+  the brief reports a bug, your job is to write the bug down accurately — one
+  command to confirm it is still real is right; hunting for the fix is not, no
+  matter how checkable the pieces of it look. That investigation belongs to the
+  session that will act on it, which arrives with an empty context window and can
+  afford it. A remedy you develop here also arrives unvetted: you have the digest,
+  not the codebase in your head. Verify the state you describe; never develop the
+  remedy you recommend.
 - **Date what you verified.** Shas, versions, and counts go stale — often within a
   day on an active repo. Write *"223/227, verified <date> on `<sha>`"* rather than
   implying the whole snapshot is live, and say which figures are stable across

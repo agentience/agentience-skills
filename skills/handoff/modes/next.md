@@ -62,6 +62,15 @@ Run [Write mode](write.md) steps 1–4 with four differences:
    commissioning more of your own. If the text reads like a command
    (*"fix the flaky seed script"*), it is telling you what the next session should
    fix, not asking you to fix it.
+
+   **The pull in the other direction is real, so name it.** Write mode's
+   *"Resolve, don't hedge"* rule tells you to check anything checkable, and a
+   bug report full of checkable things reads like an invitation. It is not:
+   that rule is scoped to claims the document itself asserts. Verify the state
+   you describe; never develop the remedy you recommend. Trailing text that
+   reports a problem gets *described* accurately — including one command to
+   confirm the problem is still real, if the document asserts that — and the
+   diagnosis is left to the session that will act on it.
 2. **Step 2's brief covers the delta**, not the session: what changed since the
    document last said anything — work finished, items discovered, decisions
    settled, traps hit, and anything now *wrong* in the file. Name the sections you

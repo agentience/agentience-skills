@@ -17,9 +17,18 @@ document is the entire deliverable; your closing message is a pointer to it, not
 summary of it (see step 4). This holds in both delegated and `--inline` mode, and
 the full statement of it lives in `agents/handoff-writer.md` under Rules. In short:
 
-- **Resolve, don't hedge.** Anything checkable with a command gets checked and
-  written as an answer. *"May already be merged by the time you read this"* is
-  homework handed to the next session; run the `git log`.
+- **Resolve, don't hedge — within scope.** Anything checkable with a command gets
+  checked and written as an answer. *"May already be merged by the time you read
+  this"* is homework handed to the next session; run the `git log`.
+  **"Checkable" means claims this document asserts — not questions the document
+  hands onward.** Verify the state you describe; never develop the remedy you
+  recommend. Confirming that a table is still missing, because the document is
+  about to say so, is handoff work. Finding out which env file carries the prefix
+  that would create it is the next session's first turn, and it is far cheaper
+  there — you are at the top of a full context window, which is the single most
+  expensive place in a session to spend a turn. If a command's only purpose is to
+  make the *recommendation* more specific rather than the *description* more
+  accurate, it is out of scope: write what you know and hand the question on.
 - **Date what you verified.** Shas, versions and counts go stale fast on an active
   repo. Say what was confirmed and when, and which figures drift.
 - **Decisions the user owes go in the doc**, under `## Decisions needed`, with
@@ -103,7 +112,11 @@ From your live context, not the transcript. 200–400 words, concrete:
 - **Traps** — what will bite: ordering constraints, stale build artifacts,
   environment gates, anything discovered the hard way this session.
 - **Don't touch** — deliberate non-goals and out-of-scope areas.
-- **Verification state** — what was actually run and observed, and what was not.
+- **Verification state** — what was actually run and observed *during the session*,
+  and what was not. This is a report of work already done, not a prompt to go do
+  more: an unverified claim is disclosed as unverified, per the scope clause on
+  *Resolve, don't hedge* above. The one exception is a load-bearing fact the
+  document asserts and time may have invalidated — confirm that with a command.
 - **Open loops with others** — anything this session owes a party outside itself: a reply
   owed to a peer agent (AMQ), a review or PR someone is waiting on, a background job whose
   result another party expects, a promise made in a message you sent. Name the channel, the

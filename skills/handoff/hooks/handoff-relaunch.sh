@@ -265,6 +265,19 @@ shell_cmd="$(printf '%q -l -c %q' "${SHELL:-/bin/zsh}" "$launch")"
 #   beside             keep it, so the finished session stays readable next to the
 #                      new one. Only sane on a large window; that is the reason it
 #                      exists.
+#
+# HANDOFF_HERDR_FOCUS:
+#   auto (default) focus the new pane only if the OLD pane was focused at fire
+#      time — checked live via `herdr pane get`. tmux gave this for free
+#      (respawn-window can only ever hit the pane you were just in); Herdr
+#      relaunches can instead fire from a pane you're not looking at (a
+#      background session's Stop, a subagent-return reopening an idle turn),
+#      and `--focus` there would yank you out of whatever tab or pane you were
+#      actively typing in. Nothing else in this script depends on the new pane
+#      being focused: `pane run`, `pane close` and the rename helper all
+#      address panes by id, so this is purely about not stealing your cursor.
+#   1              always focus the new pane, regardless of where you were.
+#   0              never focus the new pane, regardless of where you were.
 herdr_json_field() {
     # jq when present, otherwise a good-enough scrape. A Stop hook must not hard
     # depend on jq being installed.
@@ -282,6 +295,25 @@ if [ "$BACKEND" = herdr ]; then
     direction="${HANDOFF_HERDR_DIRECTION:-right}"
     herdr_mode="${HANDOFF_HERDR_MODE:-replace}"
 
+    focus_flag="--focus"
+    case "${HANDOFF_HERDR_FOCUS:-auto}" in
+        1) focus_flag="--focus" ;;
+        0) focus_flag="--no-focus" ;;
+        *)
+            # `pane get` on the OLD pane, not the not-yet-created new one: the
+            # question is "was the user looking at the thing that just finished,"
+            # and the new pane has no history to answer that with. No jq fallback
+            # needed beyond a substring test -- this is a single pane object, not
+            # a list, so "focused":true cannot appear here for any pane but this
+            # one.
+            old_info="$("$HERDR_BIN" pane get "$old_pane" 2>>"$LOG")"
+            case "$old_info" in
+                *'"focused":true'*) focus_flag="--focus" ;;
+                *)                  focus_flag="--no-focus" ;;
+            esac
+            ;;
+    esac
+
     # `--split` names both halves of the geometry: below, and keep the old pane.
     # It overrides the two env knobs on purpose -- they are ambient defaults for
     # how this machine relaunches, and the flag is a per-invocation instruction.
@@ -291,7 +323,7 @@ if [ "$BACKEND" = herdr ]; then
     fi
 
     split_out="$("$HERDR_BIN" pane split --pane "$old_pane" --direction "$direction" \
-        --cwd "$root" --focus 2>>"$LOG")" || {
+        --cwd "$root" "$focus_flag" 2>>"$LOG")" || {
         log "herdr pane split failed from $old_pane"
         exit 0
     }

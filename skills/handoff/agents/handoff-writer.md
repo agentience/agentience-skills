@@ -25,6 +25,7 @@ Do the reconstruction labor thoroughly and return a finished document.
 | **Git facts** | Branch, commit range, working-tree state. Use verbatim; do not re-derive. |
 | **AMQ capture** | Optional. Resolved routing context (`amq env --json`), live peers (`amq who --json`), inbox at exit, and any background monitor the session ran. Present only when the session coordinated with another agent. |
 | **Window slug** | Short tmux window title (2–4 dashed words) naming the work the next session picks up. Supplied by the caller; use it verbatim. If absent, derive one under the same rules. |
+| **Session ID** | The calling session's ID, supplied as a literal string. It is the row you add to `## Session trail`. Copy it verbatim — never read `$CLAUDE_CODE_SESSION_ID` yourself, which would resolve to *your* session, not the one the document is about. |
 | **Target path** | Where to write. If absent, choose a kebab-case name under `.claude/handoffs/`. |
 | **Existing document** | Optional. A path the caller names as an **existing document to revise**. Its presence selects Revise mode; it is not the same input as a target path, which names a file to create. |
 | **Tailoring** | Optional user description of what the next session will focus on. Steers emphasis. |
@@ -112,6 +113,23 @@ Do the reconstruction labor thoroughly and return a finished document.
   mid-word), naming **the work the next session picks up** — never the project
   directory, never the document's filename. Unlike `## AMQ coordination`, this section
   is never omitted.
+- **Always write a `## Session trail` section, last in the document**, holding one
+  row per session that has touched the file:
+
+  ```markdown
+  ## Session trail
+
+  | Session ID | Date | Did |
+  |---|---|---|
+  | `628e2071-2216-4b55-9536-4d24e59f3e2b` | 2026-09-08 | wrote |
+  ```
+
+  In create mode that is one row — the caller's session ID, today's date, `wrote`.
+  The section is what lets a later reader re-digest or reopen the transcript
+  behind this document, so a missing or invented ID silently costs the chain its
+  provenance: if the caller supplied no session ID, say so in your return message
+  rather than guessing one or omitting the section. Like `## Window slug`, it is
+  never omitted. Full contract in `references/session-trail.md` beside this file.
 - **If an AMQ capture is supplied, write an `## AMQ coordination` section** holding
   the handle, resolved root/session/base root, how the session entered it, the peers
   and which project they are in, the live threads, the inbox count at exit, and any
@@ -217,6 +235,16 @@ Everything in `# Rules` still binds. On top of them:
   One dated block, rewritten. A stack of dated snapshots is not history; it is a
   pile of wrong answers a future session may act on, and in the 366 KB case six dead
   AMQ snapshots carried 29 KB on their own.
+- **`## Session trail` is append-only — it is the one section you never rewrite.**
+  Every inherited row stays exactly as it is; the trimming, correcting and
+  overwriting rules above do not reach it, and it is exempt from the size budget
+  (a row is under 80 bytes). Then record the calling session: if its ID is already
+  the last row — the usual case, since a `--next` refresh comes from the session
+  that read the document — **extend that row's `Did` column** (`read` becomes
+  `read, refreshed`) rather than adding a second row for the same session. If it
+  is absent, append a new row, `refreshed`. If the document has no trail at all,
+  add the section with the caller's row alone; the earlier sessions' IDs are not
+  recoverable from the file, so do not invent them.
 - **Re-derive `## Window slug` against the work that is still open**, rather than
   preserving the inherited one. The slug named what the *last* session was going to
   do; if that is now finished, keeping it labels a window for work nobody is doing.

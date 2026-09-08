@@ -53,6 +53,7 @@ is a hybrid rather than a fire-and-forget delegation.
 
 ```bash
 OUT="${TMPDIR:-/tmp}/handoff-$CLAUDE_CODE_SESSION_ID"; mkdir -p "$OUT"
+echo "--- session ---"; echo "$CLAUDE_CODE_SESSION_ID"
 echo "--- digest ---"
 "${CLAUDE_SKILL_DIR}/scripts/digest.sh" \
   --session "$CLAUDE_CODE_SESSION_ID" --max-text 2000 --out "$OUT/digest.md" \
@@ -82,8 +83,12 @@ context re-send, which is what this mode exists to avoid.
 - `CLAUDE_CODE_SESSION_ID` is exported to every Bash call and is per-session, so it
   is safe under concurrent sessions. Never fall back to picking the newest `.jsonl`
   by mtime.
-- The session ID stays inside this call. The subagent receives the **digest path**,
-  so nothing depends on env vars crossing the subagent boundary.
+- **The `--- session ---` line is the value you carry into step 3** for the
+  document's `## Session trail` row. Nothing depends on env vars crossing the
+  subagent boundary: the subagent receives the digest **path** and the session ID
+  as a **literal string in its prompt**, never `$CLAUDE_CODE_SESSION_ID` to
+  expand for itself — a subagent's shell is not this session's shell, and an ID it
+  resolved on its own would name the wrong session.
 - `--max-text 2000` (vs. the script's 600 default) keeps the long closing summaries
   intact — for a handoff those are the highest-value records in the transcript.
 - **If the digest fails, say so and fall back to `--inline`.** Do not delegate a
@@ -147,8 +152,12 @@ From your live context, not the transcript. 200–400 words, concrete:
 Launch the `handoff-writer` subagent (Sonnet) with: the digest path, the salience
 brief verbatim, the git facts from step 1, the AMQ capture from step 1 (verbatim —
 including the monitor command, which the digest shows only as a single opaque tool
-call), the window slug from step 2, the target file path, and any tailoring the user
-passed.
+call), the window slug from step 2, **the session ID from step 1's `--- session ---`
+line**, the target file path, and any tailoring the user passed.
+
+The session ID is a literal to copy, not a variable to pass — it seeds the
+document's [`## Session trail`](../references/session-trail.md), whose whole value
+is that it names the session whose transcript stands behind the document.
 
 ### 4. Arm the relaunch, then report
 
@@ -240,6 +249,9 @@ reasoning that only the live context holds.
 Step 4 still applies verbatim: arm the sentinel, then report the path, nothing
 else. Writing the document yourself makes the pull toward summarizing it stronger,
 not weaker — resist it.
+
+The `## Session trail` contract applies unchanged too: seed it with your own row,
+`wrote`, using the session ID step 1 printed.
 
 The `## AMQ coordination` contract applies unchanged — run step 1's `amq` block and
 write the section yourself. Working from live context makes this *easier* to skip,

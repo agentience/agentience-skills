@@ -63,6 +63,13 @@ npx tsx "${CLAUDE_SKILL_DIR}/scripts/sweep-handoffs.ts" [--days 15] [--dry-run]
   scan only reads the top level of `.claude/handoffs/`, so archived files are
   never re-processed.
 
+**Sweeping does not put this session in any document's `## Session trail`.** The
+sweeping session never read the work, so a row there would claim a provenance it
+does not have; the trail travels into `archive/` exactly as the last working
+session left it, which is what keeps an archived handoff traceable back to the
+transcripts behind it. See
+[references/session-trail.md](../references/session-trail.md).
+
 ### Reporting
 
 Print the script's own summary (`N handoff(s) scanned, M archived, K kept`)

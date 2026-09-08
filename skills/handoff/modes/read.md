@@ -112,6 +112,20 @@ Resume work by reading a handoff doc and using it to kick off this session. Pars
    is now *your* working record, not the previous session's artifact. Edit it as the
    work moves — not at the end, when the session may not get an end.
 
+   - **Sign the `## Session trail` first — before any work, in your first edit of
+     this file.** Append one row for yourself, `read`, per the
+     [`## Session trail` contract](../references/session-trail.md):
+
+     ```bash
+     echo "$CLAUDE_CODE_SESSION_ID"; date +%Y-%m-%d
+     ```
+
+     Do it now rather than at the end for the same reason step 5 renames the
+     window early: a session that dies mid-work should still have left behind the
+     pointer to its own transcript, and that is precisely the session whose
+     transcript someone will want. If the document has no `## Session trail`
+     section, add one last in the file and start it with your row — do not invent
+     rows for the sessions before you, whose IDs the file does not record.
    - **Tick a work item the moment it is done**, `- [ ]` → `- [x]`. Mark one you
      have started `- [ ] **(in progress)**` with a line on where it stands, so an
      interrupted session leaves a half-finished item legible rather than looking
@@ -138,7 +152,9 @@ Resume work by reading a handoff doc and using it to kick off this session. Pars
      wrong answers a future session may act on. The same rule governs superseding a
      decision or an item — **the superseded text is deleted, not demoted.** A `D7`
      kept beside a `D7 (superseded)` doubles the document and makes the reader
-     adjudicate between two things you already chose between.
+     adjudicate between two things you already chose between. **`## Session trail`
+     is the one exception in the other direction** — it is append-only, so you add
+     your row and leave every earlier one exactly as it stands.
    - **Append to `## Progress log`**, one dated line per meaningful change
      (`date +"%Y-%m-%d %H:%M"`). Append; do not rewrite earlier entries. **Keep the
      log to roughly the five most recent entries, trimming as you append** — not at

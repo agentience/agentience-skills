@@ -22,6 +22,11 @@ live traps, and decisions still owed keep their full length — they are the par
 next session acts on, and shortening them is how you turn a fat document into a
 useless one. What comes out is *finished* content, in this order:
 
+**`## Session trail` is exempt from all four.** It is a row per session, under 80
+bytes each, and it is the only record of which transcripts stand behind this
+document — see [session-trail.md](session-trail.md). Nothing in the prune order
+below is ever worse to lose than provenance.
+
 1. Bodies of ticked work items — collapsed to title, date, and sha.
 2. Progress-log entries beyond the recent five.
 3. Superseded decisions and stacked point-in-time snapshots — deleted, not demoted.
@@ -92,3 +97,9 @@ document says. Write it so the next session can keep it true, and tell it to:
   `- YYYY-MM-DD HH:mm — <what changed>`. It gives the resuming session a place to
   append to instead of quietly rewriting history in place, and it is how a third
   session tells what the second one actually did.
+- **A `## Session trail` section, last in the document, carrying one row per
+  session that has touched this file** — session ID, date, and whether it wrote,
+  read or refreshed. Full contract, including where the ID comes from and why the
+  section is append-only, in [session-trail.md](session-trail.md). The progress
+  log says what each session changed; the trail is what lets a later reader pull
+  up *that session's transcript* and find out why.

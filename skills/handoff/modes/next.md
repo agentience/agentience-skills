@@ -80,6 +80,14 @@ Run [Write mode](write.md) steps 1–4 with four differences:
    pass the document as an **existing document to revise**, not as a target path
    to create. Its Revise mode rules govern what is preserved and what is rewritten.
    `--inline` opts out as usual, and you revise it yourself under those same rules.
+
+   **Still pass the session ID, and say the refresh is by a session already in the
+   trail when it is.** A session that arrived through `--read` signed the
+   `## Session trail` at Read mode step 7, so the refresh **updates that same row**
+   — `read` becomes `read, refreshed` — rather than adding a second one. The
+   [contract](../references/session-trail.md) counts sessions, not visits. Only the
+   `--next <path>` case, where this session never read the document, appends a new
+   row, and there it is `refreshed` alone.
 4. **Step 4 is unchanged**: arm the sentinel with that same path, then report.
    `--no-relaunch` still opts out, which makes `--next --no-relaunch` the "final
    sweep of the doc, but I'm staying here" form. `--split` still applies too —
@@ -128,7 +136,10 @@ Two cases are never a skip, however quiet the session looks:
 wrongly skipped refresh hands the next session a document that is confidently wrong
 about where the work stands, and that session will act on it.
 
-On a skip, **do not touch the file at all** — not even to restamp `**Last Updated**`.
+On a skip, **do not touch the file at all** — not even to restamp `**Last Updated**`,
+and not to touch the `## Session trail`: a skip is only reachable from a session that
+read this document, so its row is already there and the refresh it would record did
+not happen.
 A bumped timestamp on unchanged content claims a review that did not happen, and it
 resets the retention clock [Sweep mode](sweep.md) reads off that same line. Do step 4 only — arm
 the sentinel on that path, `--no-relaunch` still opting out and `--split` still

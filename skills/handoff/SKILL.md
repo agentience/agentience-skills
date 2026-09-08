@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Handoff
 
-**Last Updated: 2026-08-28 11:30**
+**Last Updated: 2026-09-08 14:08**
 
 End an expensive session cheaply: write everything the next agent needs into a
 document under `.claude/handoffs/`, and — unless told not to — arm a relaunch so a
@@ -63,6 +63,7 @@ Loaded from within a mode, never up front:
 |---|---|---|
 | [references/document-contract.md](references/document-contract.md) | Size budget; the living-record rules — work items, progress log, what gets pruned | Write, Next, Read (step 7) |
 | [references/window-slug.md](references/window-slug.md) | The `## Window slug` section every document carries | Write (produces), Read (consumes) |
+| [references/session-trail.md](references/session-trail.md) | The `## Session trail` section — one row per session that touched the document | Write, Next, Read (step 7) |
 | [references/amq.md](references/amq.md) | The `## AMQ coordination` section, and the background monitor | Write and Read, only when AMQ is in play |
 | [references/relaunch.md](references/relaunch.md) | Why the sentinel is shaped as it is; what the `Stop` hook does; the split backends | Write (step 4), and anyone changing the mechanism |
 | [references/digest-transcript.md](references/digest-transcript.md) | Provenance and drift of the transcript digest script | Only when the digest misbehaves |

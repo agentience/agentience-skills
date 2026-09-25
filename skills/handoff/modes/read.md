@@ -126,6 +126,21 @@ Resume work by reading a handoff doc and using it to kick off this session. Pars
      transcript someone will want. If the document has no `## Session trail`
      section, add one last in the file and start it with your row — do not invent
      rows for the sessions before you, whose IDs the file does not record.
+   - **Take over the predecessor's PR listeners, right after signing.** A session
+     can be registered as the listener for a pull request's review feedback, and
+     that registration is keyed by session id, so it has to follow the work to you.
+     Take the session id from the most recent `write` row of the `## Session trail`
+     and run:
+
+     ```bash
+     command -v agentic >/dev/null 2>&1 \
+       && agentic pr listener update --from "<predecessor-session-id>" --to "$CLAUDE_CODE_SESSION_ID" >/dev/null 2>&1 || true
+     ```
+
+     It is idempotent and silent: when the relaunch hook already moved the rows,
+     or nothing was ever registered, or the project has no agentic engine, it
+     moves nothing and says nothing. It exists for the `/handoff --read` the hook
+     did not launch. Skip it when the trail has no `write` row.
    - **Tick a work item the moment it is done**, `- [ ]` → `- [x]`. Mark one you
      have started `- [ ] **(in progress)**` with a line on where it stands, so an
      interrupted session leaves a half-finished item legible rather than looking

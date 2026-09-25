@@ -178,7 +178,14 @@ rm -f "$sentinel"
 # The command-side guard is the one that keeps the session from wasting a turn;
 # this one is the backstop, because the sentinel is consumed on the first fire
 # and so cannot itself record that a relaunch already happened. `.relaunched.<sid>`
-# is written below only when we actually launch, and is swept with the sentinels.
+# is written below only when we actually launch.
+#
+# It guards a session that can still reopen a turn, so it only has to live as long
+# as that session does. On the replace paths -- tmux `respawn-window -k`, Herdr's
+# default close -- the successor deletes it once the predecessor is confirmed gone
+# (`clear_fired` below). Where the predecessor survives -- split, Herdr `beside`,
+# a new window from outside tmux -- nothing can tell when it ends, so the marker
+# stays and is swept with the stale sentinels above.
 fired="$root/.claude/handoffs/.relaunched.$sid"
 if [ -n "$sid" ] && [ -e "$fired" ]; then
     log "session $sid already relaunched (-> $(head -1 "$fired" 2>/dev/null)); refusing a second one for $doc"
@@ -215,6 +222,16 @@ fi
 title="$(basename "$doc_rel" .md | tr -d '\000-\037' | tr ' ' '-' | cut -c1-40)"
 [ -z "$title" ] && title="handoff"
 
+# Herdr sidebar description, as words rather than a slug: a leading date dropped,
+# dashes and underscores to spaces. The successor's own `herdr-pane-desc.sh` hook
+# derives the same words from its `/handoff --read <doc>` prompt, but that hook
+# first runs at SessionStart, before any prompt exists -- so the launch passes it
+# in `HERDR_PANE_DESC`, and the Herdr path below seeds the pane before Claude
+# even starts. Harmless under tmux: that hook exits when not inside Herdr.
+desc="$(basename "$doc_rel" .md | tr -d '\000-\037' \
+    | sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}[-_]?//' | tr '_-' '  ' | cut -c1-60)"
+[ -z "$desc" ] && desc="handoff"
+
 # The hook inherits this session's PATH, so `claude` usually resolves here even
 # when a bare login shell in a fresh window would not find it.
 CLAUDE_BIN="$(command -v claude 2>/dev/null || true)"
@@ -241,10 +258,40 @@ prompt="${HANDOFF_COMMAND:-/handoff} --read $doc_rel"
 claude_args="--dangerously-skip-permissions"
 [ -n "${HANDOFF_CLAUDE_ARGS+set}" ] && claude_args="$HANDOFF_CLAUDE_ARGS"
 
+# PR listener transfer (agentic-workflow REQ-E-01482 / REQ-W-00697). A session
+# can be registered as the listener for a pull request's review feedback, keyed
+# by its session id. Once this window is replaced that id stops existing, and
+# feedback routed to it would fall through to a resume of a dead session. So the
+# successor's id is minted HERE, the listener rows are moved to it, and only then
+# is the launch built -- all before any pane below is split, replaced or closed.
+#
+# Skipped when the caller already chose an id or asked to resume/continue a
+# session: `--session-id` would conflict with those. Degrades to nothing when
+# `agentic` or `uuidgen` is absent, and `agentic pr listener update` is itself a
+# silent no-op in a project with no engine database, so this never gates the
+# relaunch.
+case " $claude_args " in
+    *" --session-id "*|*" --session-id="*|*" --resume "*|*" -r "*|*" --continue "*|*" -c "*) ;;
+    *)
+        if [ -n "$sid" ] && command -v uuidgen >/dev/null 2>&1; then
+            new_sid="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+            if command -v agentic >/dev/null 2>&1; then
+                (cd "$root" && agentic pr listener update --from "$sid" --to "$new_sid") \
+                    >>"$LOG" 2>&1 || log "pr listener update $sid -> $new_sid failed (ignored)"
+            fi
+            claude_args="${claude_args:+$claude_args }--session-id $new_sid"
+        fi
+        ;;
+esac
+
 # %s, not %q, for the args: it is a word list and must stay splittable.
-launch="$(printf '%q %s %q' "$CLAUDE_BIN" "$claude_args" "$prompt")"
+launch="$(printf 'HERDR_PANE_DESC=%q %q %s %q' "$desc" "$CLAUDE_BIN" "$claude_args" "$prompt")"
 launch="$launch; printf '\n[handoff-relaunch] claude exited (%s) — %s\n' \"\$?\" $(printf '%q' "$doc_rel"); exec \"\${SHELL:-/bin/zsh}\" -l"
 shell_cmd="$(printf '%q -l -c %q' "${SHELL:-/bin/zsh}" "$launch")"
+
+# Run by the successor, and only on a path where the predecessor is already gone:
+# with no session left to reopen a turn, the one-relaunch marker guards nothing.
+clear_fired="rm -f $(printf '%q' "$fired"); "
 
 # ---------------------------------------------------------------- Herdr ---
 # Herdr has no `respawn-window -k`: there is no primitive that replaces a pane's
@@ -365,14 +412,18 @@ if [ "$BACKEND" = herdr ]; then
     # ASCII only in the failure message: bash's `printf %q` renders any non-ASCII
     # byte as a $'\\nnn' escape, which survives the trip through zsh but makes the
     # dispatched command unreadable in a log or a `pane run` trace.
+    #
+    # The one-relaunch marker is cleared only on the confirmed close. A predecessor
+    # that survived can still reopen a turn, and the marker is what stops it
+    # spawning a second successor.
     close_stamp="$(date '+%Y-%m-%d %H:%M:%S')"
     close_loop="$(printf \
-        'for _ in 1 2 3 4 5; do %q pane close %q >/dev/null 2>&1; sleep 0.4; %q pane list 2>/dev/null | grep -q %q || break; done; %q pane list 2>/dev/null | grep -q %q && echo %q >> %q; ' \
+        'for _ in 1 2 3 4 5; do %q pane close %q >/dev/null 2>&1; sleep 0.4; %q pane list 2>/dev/null | grep -q %q || break; done; if %q pane list 2>/dev/null | grep -q %q; then echo %q >> %q; else %sfi; ' \
         "$HERDR_BIN" "$old_pane" \
         "$HERDR_BIN" "\"pane_id\":\"$old_pane\"" \
         "$HERDR_BIN" "\"pane_id\":\"$old_pane\"" \
         "$close_stamp herdr: pane close $old_pane FAILED after 5 tries - predecessor survived its replacement" \
-        "$LOG")"
+        "$LOG" "$clear_fired")"
 
     case "$herdr_mode" in
         beside) pane_cmd="$launch" ;;
@@ -411,6 +462,13 @@ if [ "$BACKEND" = herdr ]; then
     elif [ -n "${HERDR_TAB_ID:-}" ] && [ "$tab_policy" = force ]; then
         "$HERDR_BIN" tab rename "$HERDR_TAB_ID" "$title" >/dev/null 2>&1
     fi
+
+    # Seed the sidebar description before dispatch, for the same reason as the
+    # rename. `agentience.claude-desc` is the source `herdr-pane-desc.sh` reports
+    # under, so the successor's hook replaces this value rather than competing
+    # with it.
+    "$HERDR_BIN" pane report-metadata "$new_pane" --source agentience.claude-desc \
+        --token "desc=$desc" >/dev/null 2>&1 || true
 
     "$HERDR_BIN" pane run "$new_pane" "$pane_cmd" >/dev/null 2>>"$LOG" || {
         log "herdr pane run failed for $new_pane"
@@ -452,7 +510,10 @@ if [ -n "$pane" ] && "$TMUX_BIN" display-message -p -t "$pane" '#{window_id}' >/
         exit 0
     fi
     target="$pane"
-    "$TMUX_BIN" respawn-window -k -t "$pane" -c "$root" "$shell_cmd" 2>>"$LOG" || {
+    # `-k` kills the predecessor before the new command starts, so the successor
+    # can clear the one-relaunch marker as its first act.
+    replace_cmd="$(printf '%q -l -c %q' "${SHELL:-/bin/zsh}" "$clear_fired$launch")"
+    "$TMUX_BIN" respawn-window -k -t "$pane" -c "$root" "$replace_cmd" 2>>"$LOG" || {
         log "respawn-window failed for pane $pane"
         rm -f "$fired" 2>/dev/null
         exit 0

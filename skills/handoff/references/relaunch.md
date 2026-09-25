@@ -54,6 +54,15 @@ launched — the marker Write mode's step-4 guard reads, and the one the hook it
 checks
 before relaunching a session that already has a successor.
 
+**The marker is removed once the relaunched-from session is gone.** It guards a
+session that can still reopen a turn, and nothing else. On the replace paths —
+tmux `respawn-window -k`, Herdr's default close — the successor deletes it as its
+first act, after the predecessor has been killed (tmux) or `pane list` confirms the
+close (Herdr; a failed close leaves the marker in place, because that predecessor
+can still wake). Where the predecessor keeps running — `split=1`, Herdr `beside`,
+a new window opened from outside tmux — nothing observes it ending, so the marker
+stays until the hook's day-old sweep.
+
 ## Split mode, backend by backend
 
 The two backends reach the same result by different primitives, and the user-visible

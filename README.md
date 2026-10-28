@@ -1,6 +1,6 @@
 # agentience-skills
 
-**Last Updated: 2026-08-29 21:31**
+**Last Updated: 2026-10-28 12:30**
 
 Claude Code skills I use daily and think are worth sharing. Each one is
 self-contained: a directory under `skills/`, installable on its own, with its own
@@ -12,6 +12,7 @@ README and its own opt-in `install.sh`.
 |---|---|
 | [`handoff`](skills/handoff) | End a session by writing a handoff document; start the next by reading it. In tmux or Herdr, the writing session hands its own window to a fresh session already reading the doc — or, with `--split`, opens one in a pane below and keeps its own. |
 | [`doc-librarian`](skills/doc-librarian) | Apply library science to a repository's `docs/`: audit, triage, reorganize into Diátaxis, index and tag it — backing every verdict with counts from git history, repo-wide referrer checks and TF-IDF similarity rather than taste. |
+| [`meta-artifact-steward`](skills/meta-artifact-steward) | Give an artifact others will keep refining (a workbook, proposal, deck, spec, any file) a *steward*: a project skill committed beside it that holds the context and decisions that got it there, answers questions with sources, and records each new decision as the artifact changes. Includes an audit for edits made without a recorded decision. |
 
 ## Installing
 

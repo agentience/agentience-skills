@@ -1,0 +1,57 @@
+---
+name: {{slug}}-steward
+description: Answer questions about, and make refinements to, {{artifact description}} ({{artifact path}}). Holds the context and decisions behind it and records each new decision. Use when {{collaborators}} ask what it says or why, or want to change {{what typically changes}}.
+---
+
+# {{Artifact}} steward
+
+**Last Updated: {{YYYY-MM-DD HH:mm}}**
+
+{{One paragraph: what the artifact is, who it is for, and who refines it.}}
+
+{{Visibility rule, if any, in bold. E.g. **INTERNAL.** Nothing here goes to <audience>.}}
+
+This skill keeps the record and runs the process; people make the decisions. Every decision names who made it.
+
+## Files
+
+| Path (from the repo root) | What it is |
+|---|---|
+| `{{source of truth}}` | **The source of truth.** {{edited how}} |
+| `.claude/skills/{{slug}}-steward/context.md` | Purpose, sources, structure, assumptions with sources, conventions, traps. **Read it before any answer or change** |
+| `.claude/skills/{{slug}}-steward/decisions.md` | Decision log and open questions. **Read it before any answer or change** |
+| `.claude/skills/{{slug}}-steward/steward.json` | The contract: artifacts, editing mode, collaborators, visibility, consumers |
+| `.claude/skills/{{slug}}-steward/scripts/state.py` | `--check`: has the artifact changed since the last recorded decision? `--record`: record its state now |
+{{| `.claude/skills/{{slug}}-steward/scripts/check.py` | <the artifact's own rules> |   ← only if there is one}}
+
+## Answering a question
+
+1. Read `context.md` and `decisions.md`.
+2. Read the artifact's **current** state from the artifact itself, never from memory or these files. {{How to read it, e.g. a summary command.}}
+3. Answer with where in the artifact, the reasoning, and the decision (`D7`) or source behind it.
+4. Say so when the answer rests on an open question or an unreviewed assumption.
+5. If the question exposes a gap or an error, offer the refinement, but don't make it unasked.
+
+## Making a refinement
+
+1. **Sync.** Run `git pull`. {{For exclusive editing: if `git status` shows the artifact modified, or a lock file exists ({{lock pattern}}), stop and ask.}}
+2. **Catch unrecorded changes.** Run `python3 .claude/skills/{{slug}}-steward/scripts/state.py --check`. If it reports a change, someone edited the artifact outside this process. Work out what changed, ask who decided it and why, and record that **before** making the new change.
+3. **Know who's deciding:** `git config user.name`, unless the person names someone else.
+4. **Make the change.** {{Artifact-specific editing rules and traps. Point to context.md for detail.}}
+5. **Verify.** {{Run the check script; it must pass.}} {{Or: re-read the changed part against context.md's conventions.}}
+6. **Record.**
+   - If the change settled something, add a decision to `decisions.md` and close any open question it answers.
+   - If meaning, structure or an assumption changed, update `context.md`.
+   - Flag any consumer in `steward.json` that the change affects as pending, and tell the person.
+   - Refresh **Last Updated** in the files you changed (`date +"%Y-%m-%d %H:%M"`).
+7. **Record the state and commit.** Run `state.py --record --note "<what changed>"`. Ask before committing and pushing. {{For exclusive editing: recommend pushing promptly, since the other editors can't merge.}}
+
+## Prerequisites
+
+{{Tools the procedures need, how to check for each, and its install command. If a tool is missing, tell the person and don't install it unasked. `state.py` needs only python3.}}
+
+## Don't
+
+- Don't write a decision without who, when and a source.
+- Don't answer with figures or wording from memory; read the artifact.
+{{- Artifact-specific don'ts: visibility, things never to invent, generators never to reintroduce.}}
